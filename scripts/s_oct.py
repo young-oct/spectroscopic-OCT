@@ -176,12 +176,12 @@ if __name__ == '__main__':
 
         spe_contrast = np.diff(spc_log, axis=2).squeeze()
         spe_contrast_norm = spe_contrast / np.clip(bmode,
-                                                   a_min= 0.1*np.max(bmode),
+                                                   a_min= 0.05*np.max(bmode),
                                                    a_max= np.max(bmode))
         #
         hsv_img = formHSV(spe_contrast_norm, bmode,
-                          sp_thres_low=0.001,
-                          sp_thres_high=0.2,
+                          sp_thres_low=0.01,
+                          sp_thres_high=1,
                           st_thres=0.65,
                           saturation=25,
                           start = start)
