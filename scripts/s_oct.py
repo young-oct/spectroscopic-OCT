@@ -3,25 +3,20 @@
 # @Author  : young wang
 # @FileName: s_oct.py
 # @Software: PyCharm
-import pickle
+
 from pathlib import Path
-from scipy import ndimage
-from skimage.morphology import disk, square, star, diamond, octagon
-from skimage.morphology import dilation, erosion
-from skimage import filters
-from scipy.signal import find_peaks
-from skimage import feature
-from scipy.ndimage import gaussian_filter
 from numpy.fft import fft, fftshift, ifft
-from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
 import matplotlib
 from sklearn import preprocessing
+import cv2
+import glob
+from natsort import natsorted
 
 
-def range_convert(img, target_type_min, target_type_max, ):
+
+def range_convert(img, target_type_min, target_type_max, target_type):
     """
     converts image range from input range to a given range for
     standardized comparison
@@ -33,7 +28,7 @@ def range_convert(img, target_type_min, target_type_max, ):
 
     a = (target_type_max - target_type_min) / (imax - imin)
     b = target_type_max - a * imax
-    new_img = (a * img + b).astype(img.dtype)
+    new_img = (a * img + b).astype(target_type)
     return new_img
 
 
@@ -54,7 +49,7 @@ def Aline(data, decimation_factor):
     return A_line[:, ::decimation_factor]
 
 
-def data_loader(file_path, cross = True, norm = True):
+def data_loader(file_path, cross=True, norm=True):
     """
     load raw OCT interferogram
     :input file_path:
@@ -66,16 +61,16 @@ def data_loader(file_path, cross = True, norm = True):
 
     # swap axis of the array to
     # [axial length, lateral length]
-    raw_proc = np.swapaxes(raw['arr_1'], 0, 1)
+    raw_proc = np.swapaxes(raw['arr_0'], 0, 1)
 
     if cross:
-        raw_proc = corr_term(raw_proc, norm = norm)
+        raw_proc = corr_term(raw_proc, norm=norm)
     else:
         pass
     return raw_proc
 
 
-def corr_term(raw, norm = True):
+def corr_term(raw, norm=True):
     """
     remove the DC term of the raw interferogram
     :param norm: normalization flag
@@ -97,13 +92,43 @@ def corr_term(raw, norm = True):
 
     return raw_proc
 
-def Aline2Bmode(alines, start =420):
-    roi = alines[-350:-20,start:int(start+512)]
 
-    img_log = 20 * np.log10(abs(roi))
+def Aline2Bmode(alines, range=True):
+    img_log = 20 * np.log10(abs(alines))
+    if range:
+        img_log = range_convert(img_log,
+                                target_type_min = 0,
+                                target_type_max= 255,
+                                target_type= img_log.dtype)
+    else:
+        pass
+    return img_log
 
-    return range_convert(img_log,0,255)
 
+def formHSV(spe_img, b_img, sp_thres_low, sp_thres_high,
+            st_thres=0.65, saturation=200,start = 100):
+    sp_inf = range_convert(spe_img, 0, 1, target_type=np.float64)
+    st_inf = range_convert(b_img, 0, 1, target_type=np.float64)
+
+    sp_inf = np.clip(sp_inf, a_min=sp_thres_low, a_max=sp_thres_high)
+    st_inf = np.clip(st_inf, a_min=st_thres, a_max=1)
+
+    # convert 3D array into opencv styple HSV image
+    img_h = range_convert(sp_inf, 0, 180, target_type=np.uint8)
+    img_v = range_convert(st_inf, 0, 255, target_type=np.uint8)
+    img_s = np.full((img_v.shape), saturation, dtype=np.uint8)
+
+    temp_img = cv2.merge((ROI(img_h, start=start),
+                          ROI(img_v, start=start),
+                          ROI(img_s, start=start)))
+
+    out = cv2.cvtColor(temp_img, cv2.COLOR_HSV2RGB)
+
+    return cv2.cvtColor(out, cv2.COLOR_RGB2HSV)
+
+
+def ROI(image, start=100):
+    return image[-350:-20, start: int(start + 512)]
 
 
 if __name__ == '__main__':
@@ -116,19 +141,69 @@ if __name__ == '__main__':
         }
     )
 
-    file_path = '../data/finger(raw).npz'
-    raw = data_loader(file_path)
-    bmode = Aline2Bmode(Aline(raw,decimation_factor=20))
+    data_list = natsorted(glob.glob('../data/*.npz'))
 
-    p_factor = 0.65
-    dvmin, dvmax = np.max(bmode) * p_factor, np.max(bmode)
-    fig = plt.figure(figsize=(16, 9), constrained_layout=True)
+    for i in range(len(data_list)):
+        if i == 0:
+            start = 100
+        else:
+            start = 100
+        raw = data_loader(data_list[i])
+        bmode = Aline2Bmode(Aline(raw, decimation_factor=20), range=True)
 
-    gs = fig.add_gridspec(ncols=2, nrows=1)
-    ax = fig.add_subplot(gs[0])
-    ax.set_title('(a) standard B-mode')
+        length = raw.shape[0]
 
-    ax.imshow(bmode, 'gray',
-              aspect=bmode.shape[1] / bmode.shape[0],
-              vmin=dvmin, vmax=dvmax, interpolation='none')
-    plt.show()
+        band_no = 2
+        hann = np.hanning(1.05 * length / band_no)
+        band1 = np.pad(hann, (0, length - len(hann) % length), 'constant')
+        band2 = np.pad(hann, (length - len(hann) % length, 0), 'constant')
+
+        band1 = band1[:, np.newaxis]
+        band2 = band2[:, np.newaxis]
+
+        bands = [band1, band2]
+
+        spectral_arr = np.zeros((raw.shape[0], raw.shape[1], 2))
+        for i in range(spectral_arr.shape[-1]):
+            temp = np.copy(raw)
+            spectral_arr[:, :, i] = temp * bands[i]
+
+        spc_log = np.zeros((raw.shape[0], int(raw.shape[1] / 20), 2))
+        for i in range(spc_log.shape[-1]):
+            spc_log[:, :, i] = Aline2Bmode(Aline(spectral_arr[:, :, i],
+                                                 decimation_factor=20),
+                                           range=True)
+
+        spe_contrast = np.diff(spc_log, axis=2).squeeze()
+        spe_contrast_norm = spe_contrast / np.clip(bmode,
+                                                   a_min= 0.1*np.max(bmode),
+                                                   a_max= np.max(bmode))
+        #
+        hsv_img = formHSV(spe_contrast_norm, bmode,
+                          sp_thres_low=0.001,
+                          sp_thres_high=0.2,
+                          st_thres=0.65,
+                          saturation=25,
+                          start = start)
+
+        img_list = [range_convert(ROI(bmode,start ), 0, 255, np.float64),
+                    range_convert(ROI(spe_contrast_norm,start), 0, 255, np.float64), hsv_img]
+        title_list = ['conventional OCT image',
+                      'spectral signal image',
+                      'spectroscopic OCT']
+
+        fig, axs = plt.subplots(1, int(len(img_list)), figsize=(16, 9))
+        for n, (ax, img, title) in enumerate(zip(axs.flat,
+                                                 img_list, title_list)):
+
+            if n == 0:
+                ax.imshow(img, 'gray', vmin=0.65 * np.max(img), vmax=np.max(img))
+            elif n == 1:
+                ax.imshow(img, 'hot', vmin=0.1 * np.max(img), vmax=np.max(img))
+            else:
+                ax.imshow(img)
+
+            ax.set_title(title)
+            ax.set_axis_off()
+        plt.tight_layout()
+        plt.show()
