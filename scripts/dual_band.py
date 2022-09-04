@@ -3,7 +3,16 @@
 # @Author  : young wang
 # @FileName: dual_band.py
 # @Software: PyCharm
+"""
+spectral analysis of OCT images based on methods described here
 
+1. Miao Zhang, Lixin Ma, and Ping Yu, "Dual-band Fourier domain optical
+coherence tomography with depth-related compensations," Biomed. Opt. Express 5, 167-182 (2014)
+2. Liba, O. et al. Contrast-enhanced optical coherence
+tomography with picomolar sensitivity for functional in
+vivo imaging. Sci. Rep. 6, 23337; doi: 10.1038/srep23337 (2016).
+
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
