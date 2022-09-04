@@ -4,13 +4,10 @@
 # @FileName: s_oct.py
 # @Software: PyCharm
 
-from pathlib import Path
-from numpy.fft import fft, fftshift, ifft
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from sklearn import preprocessing
-import cv2
 import glob
 from natsort import natsorted
 from utilities.utilities import range_convert,Aline,data_loader,Aline2Bmode,formHSV,ROI
@@ -26,6 +23,8 @@ if __name__ == '__main__':
     )
 
     data_list = natsorted(glob.glob('../data/*.npz'))
+    images = []
+    titles = []
 
     for i in range(len(data_list)):
         if i == 0:
@@ -74,22 +73,29 @@ if __name__ == '__main__':
 
         img_list = [range_convert(ROI(bmode,start), 0, 255, np.float64),
                     range_convert(ROI(spe_contrast_norm,start), 0, 255, np.float64), hsv_img]
+
         title_list = ['conventional OCT image',
                       'spectral signal image',
                       'spectroscopic OCT']
 
-        fig, axs = plt.subplots(1, int(len(img_list)), figsize=(16, 9))
-        for n, (ax, img, title) in enumerate(zip(axs.flat,
-                                                 img_list, title_list)):
+        images.append(img_list)
+        titles.append(title_list)
 
+    fig, axs = plt.subplots(len(images), len(images[0]), figsize=(16, 9))
+    for j in range(len(images)):
+        temp_img = images[j]
+        temp_title = titles[j]
+
+        for n in range(len(temp_img)):
             if n == 0:
-                ax.imshow(img, 'gray', vmin=0.65 * np.max(img), vmax=np.max(img))
+                axs[j,n].imshow(temp_img[n], 'gray',
+                            vmin= 0.65 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
             elif n == 1:
-                ax.imshow(img, 'hot', vmin=0.1 * np.max(img), vmax=np.max(img))
+                axs[j, n].imshow(temp_img[n], 'hot',
+                                 vmin=0.1 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
             else:
-                ax.imshow(img)
-
-            ax.set_title(title)
-            ax.set_axis_off()
-        plt.tight_layout()
-        plt.show()
+                axs[j, n].imshow(temp_img[n])
+            axs[j,n].set_title(temp_title[n])
+            axs[j,n].set_axis_off()
+    plt.tight_layout()
+    plt.show()
