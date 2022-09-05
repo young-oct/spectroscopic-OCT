@@ -13,7 +13,7 @@ tomography with picomolar sensitivity for functional in
 vivo imaging. Sci. Rep. 6, 23337; doi: 10.1038/srep23337 (2016).
 
 """
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -106,5 +106,13 @@ if __name__ == '__main__':
                 axs[j, n].imshow(temp_img[n])
             axs[j,n].set_title(temp_title[n])
             axs[j,n].set_axis_off()
+    fig.suptitle('dual band method')
     plt.tight_layout()
+
+    figure_folder = '../figure'
+    if not os.path.isdir(figure_folder):
+        os.mkdir(figure_folder)
+    fig_path = os.path.join(figure_folder,'figure.jpeg')
+    plt.savefig(fig_path, format='jpeg',
+        bbox_inches=None, pad_inches=0)
     plt.show()
