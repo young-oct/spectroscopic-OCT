@@ -62,23 +62,20 @@ if __name__ == '__main__':
     img_list = [range_convert(ROI(v_img, start), 0, 255, np.float64),
                 range_convert(ROI(cor_log, start), 0, 255, np.float64), hsv_img]
 
-
-
     fig, axs = plt.subplots(1, len(title_list), figsize=(16, 9))
+    for n, (ax, image, title) in enumerate(zip(axs.flat, img_list, title_list)):
 
-
-    for n in range(len(temp_img)):
         if n == 0:
-            axs[k, n].imshow(temp_img[n], 'gray',
-                             vmin=0.65 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
+            ax.imshow(image, 'gray',
+                             vmin=0.65 * np.max(image), vmax=np.max(image))
         elif n == 1:
-            axs[k, n].imshow(temp_img[n], 'hot',
-                             vmin=0.1 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
+            ax.imshow(image, 'hot',
+                             vmin=0.1 * np.max(image), vmax=np.max(image))
         else:
-            axs[k, n].imshow(temp_img[n])
-        axs[k, n].set_title(temp_title[n])
-        axs[k, n].set_axis_off()
-    fig.suptitle('sftt band method')
+            ax.imshow(image)
+        ax.set_title(title)
+        ax.set_axis_off()
+    fig.suptitle('sftt  method')
     plt.tight_layout()
 
     # figure_folder = '../figure'
