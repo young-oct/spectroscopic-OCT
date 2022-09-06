@@ -13,6 +13,15 @@ from scipy import signal
 from natsort import natsorted
 from utilities.utilities import range_convert,Aline,data_loader,Aline2Bmode,formHSV,ROI
 
+"""
+spectral analysis of OCT images based on methods described here
+
+Alexandrov, S., Arangath, A., Zhou, Y. et al. 
+Accessing depth-resolved high spatial frequency content 
+from the optical coherence tomography signal. Sci Rep 11, 17123
+ (2021). https://doi.org/10.1038/s41598-021-96619-7
+"""
+
 if __name__ == '__main__':
 
     matplotlib.rcParams.update(
