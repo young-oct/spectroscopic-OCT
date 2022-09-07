@@ -122,5 +122,7 @@ def formHSV(spe_img, b_img, sp_thres_low, sp_thres_high,
 
 
 def ROI(image, start=100):
-    return image[-350:-20, start: int(start + 512)]
+    return image[-(20+330):-20, start: int(start + 512)]
+    # return image[20:350, start: int(start + 512)]
+
 

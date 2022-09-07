@@ -12,14 +12,31 @@ import glob
 from scipy import signal
 from natsort import natsorted
 from utilities.utilities import range_convert,Aline,data_loader,Aline2Bmode,formHSV,ROI
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+def colorbar(Mappable, Orientation='vertical'):
+
+    Ax = Mappable.axes
+    fig = Ax.figure
+    divider = make_axes_locatable(Ax)
+    cax = divider.append_axes("right", size="5%", pad=0.10)
+
+    return fig.colorbar(
+        mappable=Mappable,
+        cax=cax,
+        use_gridspec=True,
+        orientation=Orientation)
+
 
 """
 spectral analysis of OCT images based on methods described here
 
-Alexandrov, S., Arangath, A., Zhou, Y. et al. 
-Accessing depth-resolved high spatial frequency content 
-from the optical coherence tomography signal. Sci Rep 11, 17123
- (2021). https://doi.org/10.1038/s41598-021-96619-7
+U. Morgner, W. Drexler, F. X. Kärtner,
+X. D. Li, C. Pitris, E. P. Ippen, 
+and J. G. Fujimoto, 
+"Spectroscopic optical coherence tomography," 
+Opt. Lett. 25, 111-113 (2000)
+
 """
 
 if __name__ == '__main__':
@@ -48,12 +65,20 @@ if __name__ == '__main__':
         img_contrast = np.zeros_like(raw)
         for j in range(raw.shape[-1]):
             line_raw = raw[:, j]
-            _, _, banded_signal = signal.stft(line_raw,
-                                              nperseg=int(len(line_raw))/3,
-                                              nfft = len(line_raw)*2-1)
-            energy = [np.sum(abs(banded_signal[:,i]) ** 2) for i in range(banded_signal.shape[-1])]
-            img_contrast[:,j] = signal.resample(energy, raw.shape[0])
+            length = len(line_raw)
 
+            f, _, Zxx = signal.stft(line_raw, window=('gaussian', int(length // 20)),
+                                    nperseg=int(length // 5),
+                                    noverlap=int(length // 10),
+                                    nfft=length,
+                                    return_onesided=True)
+            centroid = np.empty(Zxx.shape[-1])
+            for t in range(Zxx.shape[-1]):
+                centroid[t] = np.sum(abs(Zxx[:, t]) * f) / np.sum(abs(Zxx[:, t]))
+                cent_resample = signal.resample(centroid, len(line_raw))
+
+            img_contrast[:,j] = signal.resample(cent_resample, raw.shape[0])
+    #
         decimation_factor = 20
         start = 100
         cor_log = img_contrast[:, ::decimation_factor]
@@ -62,8 +87,8 @@ if __name__ == '__main__':
         v_img = Aline2Bmode(Aline(raw, decimation_factor=20), range=True)
 
         hsv_img = formHSV(cor_log, v_img,
-                          sp_thres_low=0.01,
-                          sp_thres_high=1,
+                          sp_thres_low=0.05,
+                          sp_thres_high=0.8,
                           st_thres=0.65,
                           saturation=25,
                           start=start)
@@ -86,10 +111,14 @@ if __name__ == '__main__':
         for n in range(len(temp_img)):
             if n == 0:
                 axs[k,n].imshow(temp_img[n], 'gray',
-                            vmin= 0.65 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
+                            vmin= np.mean(temp_img[n]),
+                                vmax=np.max(temp_img[n]))
             elif n == 1:
-                axs[k, n].imshow(temp_img[n], 'hot',
-                                 vmin=0.1 * np.max(temp_img[n]), vmax=np.max(temp_img[n]))
+                ax = axs[k, n].imshow(temp_img[n],
+                                      'hot',
+                                 vmin = np.mean(temp_img[n]),
+                                      vmax=np.max(temp_img[n]))
+                colorbar(ax)
             else:
                 axs[k, n].imshow(temp_img[n])
             axs[k,n].set_title(temp_title[n])
