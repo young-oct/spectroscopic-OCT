@@ -28,14 +28,14 @@ if __name__ == '__main__':
     data_list = natsorted(glob.glob('../data/*.npz'))
 
     start = 100
-    raw = data_loader(data_list[0])
+    raw = data_loader(data_list[-1])
     bmode = Aline2Bmode(Aline(raw, decimation_factor=20), range=True)
 
     img_contrast = np.zeros_like(raw)
     for j in range(raw.shape[-1]):
         line_raw = raw[:, j]
         _, _, banded_signal = signal.stft(line_raw,
-                                          nperseg=int(len(line_raw)) / 3,
+                                          nperseg=int(len(line_raw)) / 5,
                                           nfft=len(line_raw) * 2 - 1)
         energy = [np.sum(abs(banded_signal[:, i]) ** 2) for i in range(banded_signal.shape[-1])]
         img_contrast[:, j] = signal.resample(energy, raw.shape[0])
